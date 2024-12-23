@@ -34,6 +34,7 @@
 
 ![link About do site](https://github.com/andrew890074/Connect.AI/blob/main/demonstração/tela3.png)
 
+![link About do site](https://github.com/andrew890074/Connect.AI/blob/main/demonstração/flow2.png)
 
 ![link About do site](https://github.com/andrew890074/Connect.AI/blob/main/demonstração/conexao.png)
 
