@@ -7,8 +7,12 @@
 
 
 <<<<<<< HEAD
-<code>apt update && apt upgrade -y && apt install sudo git -y && sudo rm -rf Connect.AI && sudo git clone https://github.com/andrew890074/Connect.AI.git && cd Connect.AI && sudo chmod +x ./devconnectai && ./devconnectai</code><br />
+<<<<<<< HEAD
+<code>apt update && apt upgrade -y && apt install sudo git -y && sudo rm -rf Connect.AI && sudo git clone https://github.com/andrew890074/Whaticket-Saas-Completo.git && cd Connect.AI && sudo chmod +x ./devconnectai && ./devconnectai</code><br />
 =======
+=======
+
+>>>>>>> 08a49ed (Update Flow)
 <code>apt update && apt upgrade -y && apt install sudo git -y && sudo rm -rf Connect.AI && sudo git clone https://github.com/andrew890074/Whaticket-Saas-Completo.git && cd Connect.AI && sudo chmod +x ./devconnectai && ./devconnectai</code><br />
 >>>>>>> 8c65177 (Update Flow)
 &nbsp;</p>
