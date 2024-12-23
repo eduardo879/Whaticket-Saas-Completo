@@ -6,16 +6,9 @@
 <p>Ubuntu 22.04</p>
 
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 <code>apt update && apt upgrade -y && apt install sudo git -y && sudo rm -rf Connect.AI && sudo git clone https://github.com/andrew890074/Whaticket-Saas-Completo.git && cd Connect.AI && sudo chmod +x ./devconnectai && ./devconnectai</code><br />
-=======
-=======
 
->>>>>>> 08a49ed (Update Flow)
-<code>apt update && apt upgrade -y && apt install sudo git -y && sudo rm -rf Connect.AI && sudo git clone https://github.com/andrew890074/Whaticket-Saas-Completo.git && cd Connect.AI && sudo chmod +x ./devconnectai && ./devconnectai</code><br />
->>>>>>> 8c65177 (Update Flow)
-&nbsp;</p>
+
 
 <h3>Atualização</h3>
 
