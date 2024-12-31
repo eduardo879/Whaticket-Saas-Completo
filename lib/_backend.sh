@@ -1,256 +1,236 @@
 #!/bin/bash
 #
-# functions for setting up app backend
-#######################################
-# creates REDIS db using docker
-# Arguments:
-#   None
-#######################################
-backend_redis_create() {
-  print_banner
-  printf "${WHITE} 💻 Criando Redis & Banco Postgres...${GRAY_LIGHT}"
-  printf "\n\n"
+# Script para instalação e configuração do backend do Whaticket SaaS Completo
+# https://github.com/andrew890074/Whaticket-Saas-Completo
+#
+# **AVISO:** Este script é uma versão melhorada do script original, mas ainda requer revisão e adaptação
+# para o seu ambiente específico. Use por sua conta e risco.
+#
+# **SEGURANÇA:** Este script lida com informações sensíveis. **NÃO** o execute em produção
+# sem antes revisar e entender completamente o que ele faz.
+#
 
-  sleep 2
+# Cores
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+GRAY_LIGHT='\033[0;37m'
+NC='\033[0m' # No Color
 
-  sudo su - root <<EOF
-  usermod -aG docker deployautomatizaai
-  docker run --name redis-redis -p 6379:6379 --restart always --detach redis redis-server --requirepass ${db_pass}
-  
-EOF
+# Variáveis de ambiente - **CONFIGURE ESTAS VARIÁVEIS CORRETAMENTE**
+db_user="whaticketuser"
+db_name="whaticketdb"
+backend_hostname="seu_dominio.com"  # Substitua pelo seu domínio (ou IP para testes)
+frontend_url="https://seu_dominio.com"  # Substitua pelo seu domínio (ou IP para testes)
+# Outras variáveis como as de email, GerenciaNet, Facebook, etc. devem ser configuradas no .env posteriormente
 
- sleep 2
-
+# Função para imprimir banners
+print_banner() {
+  printf "${BLUE}###############################################################################${NC}\n"
+  printf "${BLUE}# $1${NC}\n"
+  printf "${BLUE}###############################################################################${NC}\n"
 }
 
-#######################################
-# sets environment variable for backend.
-# Arguments:
-#   None
-#######################################
-backend_set_env() {
-  print_banner
-  printf "${WHITE} 💻 Configurando variáveis de ambiente (backend)...${GRAY_LIGHT}"
-  printf "\n\n"
-
-  sleep 2
-
-  # ensure idempotency
-  backend_url=$(echo "${backend_url/https:\/\/}")
-  backend_url=${backend_url%%/*}
-  backend_url=https://$backend_url
-
-  # ensure idempotency
-  frontend_url=$(echo "${frontend_url/https:\/\/}")
-  frontend_url=${frontend_url%%/*}
-  frontend_url=https://$frontend_url
-
-sudo su - deployautomatizaai << EOF
-  cat <<[-]EOF > /home/deployautomatizaai/whaticket/backend/.env
-NODE_ENV=
-
-# VARIÁVEIS DE SISTEMA
-BACKEND_URL=${backend_url}
-ALLOWED_ORIGINS=${frontend_url}
-PROXY_PORT=443
-PORT=8080
-
-# CREDENCIAIS BANCO DE DADOS
-DB_TIMEZONE=-03:00
-DB_DIALECT=postgres
-DB_HOST=localhost
-DB_USER=postgres
-DB_PASS=2000@23
-DB_NAME=whaticketautomatizaai
-DB_PORT=5432
-DB_DEBUG=false
-DB_BACKUP=/www/wwwroot/backup
-
-JWT_SECRET=53pJTvkL9T6q2jYFFKwXgvLAgQahwbb/BM0opll5NZM=
-JWT_REFRESH_SECRET=1/n/QnJtfUphUd9CrXjaxRw+jSAxtRIJwFroFmqrRXY=
-
-REDIS_URI=redis://:${db_pass}@127.0.0.1:6379
-REDIS_OPT_LIMITER_MAX=1
-REGIS_OPT_LIMITER_DURATION=3000
-
-#MASTER KEY PARA TODOS
-MASTER_KEY=
-
-ENV_TOKEN=
-WHATSAPP_UNREADS=
-
-# FACEBOOK/INSTAGRAM CONFIGS
-VERIFY_TOKEN=Whaticket
-FACEBOOK_APP_ID=
-FACEBOOK_APP_SECRET=
-
-# BROWSER SETTINGS
-BROWSER_CLIENT=
-BROWSER_NAME=Chrome
-BROWSER_VERSION=10.0
-VIEW_QRCODE_TERMINAL=true
-
-# EMAIL
-MAIL_HOST=""
-MAIL_USER=""
-MAIL_PASS=""
-MAIL_FROM=""
-MAIL_PORT=587
-
-GERENCIANET_SANDBOX=false
-GERENCIANET_CLIENT_ID=
-GERENCIANET_CLIENT_SECRET=
-GERENCIANET_PIX_CERT=
-GERENCIANET_PIX_KEY=
-
-OPENAI_API_KEY=
-
-
-[-]EOF
-EOF
-
-  sleep 2
+# Função para gerar senhas aleatórias
+generate_password() {
+  openssl rand -base64 32
 }
 
-#######################################
-# install_chrome
-# Arguments:
-#   None
-#######################################
-backend_chrome_install() {
-  print_banner
-  printf "${WHITE} 💻 Vamos instalar o Chrome...${GRAY_LIGHT}"
-  printf "\n\n"
-
-  sleep 2
-
-  sudo su - root <<EOF
-  sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
-  wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-  apt-get update
-  apt-get install -y google-chrome-stable
-EOF
-
-  sleep 2
+# Função para verificar se um comando foi executado com sucesso
+check_command() {
+  if [ $? -ne 0 ]; then
+    printf "${RED}ERRO: O comando anterior falhou. Abortando.${NC}\n"
+    exit 1
+  fi
 }
 
-#######################################
-# installs node.js dependencies
-# Arguments:
-#   None
-#######################################
-backend_node_dependencies() {
-  print_banner
-  printf "${WHITE} 💻 Instalando dependências do backend...${GRAY_LIGHT}"
-  printf "\n\n"
+# --- Início da Configuração ---
 
-  sleep 2
+# Atualiza o sistema
+print_banner "Atualizando o sistema"
+sudo apt update
+check_command
+sudo apt upgrade -y
+check_command
 
-  sudo su - deployautomatizaai <<EOF
-  cd /home/deployautomatizaai/whaticket/backend
-  npm install --force
+# Instala dependências
+print_banner "Instalando dependências"
+sudo apt install -y ca-certificates curl gnupg mysql-server nginx git
+check_command
+
+# Configura o banco de dados MySQL
+print_banner "Configurando o banco de dados MySQL"
+db_pass=$(generate_password)
+sudo mysql <<EOF
+CREATE DATABASE ${db_name};
+CREATE USER '${db_user}'@'localhost' IDENTIFIED BY '${db_pass}';
+GRANT ALL PRIVILEGES ON ${db_name}.* TO '${db_user}'@'localhost';
+FLUSH PRIVILEGES;
 EOF
+check_command
+printf "${YELLOW}Senha do banco de dados (guarde em local seguro): ${db_pass}${NC}\n"
 
-  sleep 2
-}
+# Cria o usuário para a aplicação
+print_banner "Criando usuário para a aplicação"
+sudo useradd -m -s /bin/bash deployautomatizaai
+check_command
 
-#######################################
-# runs db migrate
-# Arguments:
-#   None
-#######################################
-backend_db_migrate() {
-  print_banner
-  printf "${WHITE} 💻 Executando db:migrate...${GRAY_LIGHT}"
-  printf "\n\n"
+# Instala o Node.js 18 LTS
+print_banner "Instalando Node.js 18 LTS"
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
+sudo apt-get update
+sudo apt-get install -y nodejs
+check_command
 
-  sleep 2
+# Instala o PM2
+print_banner "Instalando o PM2"
+sudo npm install -g pm2
+check_command
 
-  sudo su - deployautomatizaai <<EOF
-  cd /home/deployautomatizaai/whaticket/backend
-  npx sequelize db:migrate
-EOF
+# Instala o Certbot
+print_banner "Instalando o Certbot"
+sudo apt install -y certbot python3-certbot-nginx
+check_command
 
-  sleep 2
-}
+# Instala o Google Chrome
+print_banner "Instalando o Google Chrome"
+sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google.list'
+wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+sudo apt-get update
+sudo apt-get install -y google-chrome-stable
+check_command
 
-#######################################
-# runs db seed
-# Arguments:
-#   None
-#######################################
-backend_db_seed() {
-  print_banner
-  printf "${WHITE} 💻 Executando db:seed...${GRAY_LIGHT}"
-  printf "\n\n"
+# --- Configuração do Whaticket ---
+print_banner "Configurando o Whaticket"
+cd /opt
+sudo git clone https://github.com/andrew890074/Whaticket-Saas-Completo.git
+sudo chown -R deployautomatizaai:deployautomatizaai /opt/Whaticket-Saas-Completo
+check_command
 
-  sleep 2
+# --- Configuração do Backend ---
+print_banner "Configurando o Backend"
+cd /opt/Whaticket-Saas-Completo/whaticket/backend
 
-  sudo su - deployautomatizaai <<EOF
-  cd /home/deployautomatizaai/whaticket/backend
-  npx sequelize db:seed:all
-EOF
+# Instala dependências do backend com npm ci
+print_banner "Instalando dependências do backend"
+sudo -u deployautomatizaai npm ci
+check_command
 
-  sleep 2
-}
+# Configura as variáveis de ambiente do backend
+print_banner "Configurando variáveis de ambiente do backend"
+sudo mv .env.example .env
+jwt_secret=$(generate_password)
+jwt_refresh_secret=$(generate_password)
+sudo sed -i "s|DB_USER=.*|DB_USER=${db_user}|g" .env
+sudo sed -i "s|DB_PASS=.*|DB_PASS=${db_pass}|g" .env
+sudo sed -i "s|DB_NAME=.*|DB_NAME=${db_name}|g" .env
+sudo sed -i "s|BACKEND_URL=.*|BACKEND_URL=https://${backend_hostname}|g" .env
+sudo sed -i "s|FRONTEND_URL=.*|FRONTEND_URL=${frontend_url}|g" .env
+sudo sed -i "s|JWT_SECRET=.*|JWT_SECRET=${jwt_secret}|g" .env
+sudo sed -i "s|JWT_REFRESH_SECRET=.*|JWT_REFRESH_SECRET=${jwt_refresh_secret}|g" .env
+sudo sed -i "s|REDIS_URI=.*|REDIS_URI=redis://:${db_pass}@127.0.0.1:6379|g" .env
+sudo chown deployautomatizaai:deployautomatizaai .env
+check_command
 
-#######################################
-# starts backend using pm2 in 
-# production mode.
-# Arguments:
-#   None
-#######################################
-backend_start_pm2() {
-  print_banner
-  printf "${WHITE} 💻 Iniciando pm2 (backend)...${GRAY_LIGHT}"
-  printf "\n\n"
+# Executa as migrações do banco de dados
+print_banner "Executando migrações do banco de dados"
+sudo -u deployautomatizaai npx sequelize db:migrate
+check_command
 
-  sleep 2
+# --- Configuração do Frontend ---
+print_banner "Configurando o Frontend"
+cd ../frontend
 
-  sudo su - deployautomatizaai <<EOF
-  cd /home/deployautomatizaai/whaticket/backend
-  pm2 start automatizaai/server.js --name whaticket-backend 
-EOF
+# Instala dependências do frontend com npm ci
+print_banner "Instalando dependências do frontend"
+sudo -u deployautomatizaai npm ci
+check_command
 
-  sleep 2
-}
+# Configura as variáveis de ambiente do frontend
+print_banner "Configurando variáveis de ambiente do frontend"
+sudo mv .env.example .env
+sudo sed -i "s|VITE_BASE_URL=.*|VITE_BASE_URL=https://${backend_hostname}/api|g" .env
+sudo chown deployautomatizaai:deployautomatizaai .env
+check_command
 
-#######################################
-# updates frontend code
-# Arguments:
-#   None
-#######################################
-backend_nginx_setup() {
-  print_banner
-  printf "${WHITE} 💻 Configurando nginx (backend)...${GRAY_LIGHT}"
-  printf "\n\n"
+# Compila o frontend para produção
+print_banner "Compilando o frontend para produção"
+sudo -u deployautomatizaai npm run build
+check_command
 
-  sleep 2
-
-  backend_hostname=$(echo "${backend_url/https:\/\/}")
-
-sudo su - root << EOF
-
-cat > /etc/nginx/sites-available/whaticket-backend << 'END'
+# --- Configuração do Nginx ---
+print_banner "Configurando o Nginx"
+sudo rm /etc/nginx/sites-enabled/default
+sudo tee /etc/nginx/sites-available/whaticket <<EOF
 server {
-  server_name $backend_hostname;
+    listen 80;
+    server_name ${backend_hostname} www.${backend_hostname};
 
-  location / {
-    proxy_pass http://127.0.0.1:8080;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade \$http_upgrade;
-    proxy_set_header Connection 'upgrade';
-    proxy_set_header Host \$host;
-    proxy_set_header X-Real-IP \$remote_addr;
-    proxy_set_header X-Forwarded-Proto \$scheme;
-    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-    proxy_cache_bypass \$http_upgrade;
-  }
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    location /socket.io {
+        proxy_pass http://localhost:8080/socket.io;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+    }
+
+    location /api {
+        proxy_pass http://localhost:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+    }
+
+    location /static {
+        root /opt/Whaticket-Saas-Completo/whaticket/frontend/dist;
+        try_files \$uri \$uri/ /index.html;
+    }
 }
-END
-
-ln -s /etc/nginx/sites-available/whaticket-backend /etc/nginx/sites-enabled
 EOF
+sudo ln -s /etc/nginx/sites-available/whaticket /etc/nginx/sites-enabled/
+check_command
+sudo nginx -t
+check_command
+sudo systemctl restart nginx
+check_command
 
-  sleep 2
-}
+# --- Configuração do SSL (HTTPS) ---
+print_banner "Configurando SSL (HTTPS) com Certbot"
+sudo certbot --nginx -d ${backend_hostname} -d www.${backend_hostname} --redirect
+check_command
+
+# --- Configuração do PM2 ---
+print_banner "Configurando o PM2"
+cd /opt/Whaticket-Saas-Completo/whaticket/backend
+sudo -u deployautomatizaai pm2 start npm --name "backend" -- run start
+check_command
+sudo -u deployautomatizaai pm2 startup systemd
+check_command
+sudo -u deployautomatizaai pm2 save
+check_command
+
+# --- Configuração do Firewall ---
+print_banner "Configurando o Firewall (UFW)"
+sudo apt install -y ufw
+sudo ufw allow OpenSSH
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+check_command
+
+printf "${GREEN}Instalação e configuração concluídas!${NC}\n"
+printf "${YELLOW}Acesse o Whaticket em https://${backend_hostname}${NC}\n"
+printf "${YELLOW}Lembre-se de configurar as variáveis de ambiente restantes no arquivo /opt/Whaticket-Saas-Completo/whaticket/backend/.env${NC}\n"
